@@ -1,97 +1,98 @@
-# 載入必要套件
-import requests,datetime,os,time
+# -*- coding: utf-8 -*-
+"""
+金融資料視覺化看板 (自動讀取多檔 .pkl)
+"""
+
+# 載入必要模組
+import os
+import glob
 import numpy as np
-import matplotlib.dates as mdates
-#from talib.abstract import *  # 載入技術指標函數
+import pandas as pd
+import streamlit as st
+import streamlit.components.v1 as stc
+import datetime
+import matplotlib.pyplot as plt
+from order_streamlit import Record
+import indicator_forKBar_short  # 恢復依賴此模組
 
-    
-# 算K棒
-class KBar():
-    # 設定初始化變數
-    def __init__(self,date,cycle = 1):
-        # K棒的頻率(分鐘)
-        self.TAKBar = {}
-        self.TAKBar['time'] = np.array([])
-        self.TAKBar['open'] = np.array([])
-        self.TAKBar['high'] = np.array([])
-        self.TAKBar['low'] = np.array([])
-        self.TAKBar['close'] = np.array([])
-        self.TAKBar['volume'] = np.array([])
-        self.current = datetime.datetime.strptime(date + ' 00:00:00','%Y-%m-%d %H:%M:%S')
-        self.cycle = datetime.timedelta(minutes = cycle)
-    # 更新最新報價
-    def AddPrice(self,time, open_price, close_price, low_price, high_price,volume):
-        # 同一根K棒
-        if time <= self.current:
-            # 更新收盤價
-            self.TAKBar['close'][-1] = close_price
-            # 更新成交量
-            self.TAKBar['volume'][-1] += volume  
-            # 更新最高價
-            self.TAKBar['high'][-1] = max(self.TAKBar['high'][-1],high_price)
-            # 更新最低價
-            self.TAKBar['low'][-1] = min(self.TAKBar['low'][-1],low_price)  
-            # 若沒有更新K棒，則回傳0
-            return 0
-        # 不同根K棒
-        else:
-            while time > self.current:
-                self.current += self.cycle
-            self.TAKBar['time'] = np.append(self.TAKBar['time'],self.current)
-            self.TAKBar['open'] = np.append(self.TAKBar['open'],open_price)
-            self.TAKBar['high'] = np.append(self.TAKBar['high'],high_price)
-            self.TAKBar['low'] = np.append(self.TAKBar['low'],low_price)
-            self.TAKBar['close'] = np.append(self.TAKBar['close'],close_price)
-            self.TAKBar['volume'] = np.append(self.TAKBar['volume'],volume)
-            # 若有更新K棒，則回傳1
-            return 1
-    # 取時間
-    def GetTime(self):
-        return self.TAKBar['time']      
-    # 取開盤價
-    def GetOpen(self):
-        return self.TAKBar['open']
-    # 取最高價
-    def GetHigh(self):
-        return self.TAKBar['high']
-    # 取最低價
-    def GetLow(self):
-        return self.TAKBar['low']
-    # 取收盤價
-    def GetClose(self):
-        return self.TAKBar['close']
-    # 取成交量
-    def GetVolume(self):
-        return self.TAKBar['volume']
-    # 取MA值(MA期數)
-    # def GetMA(self,n,matype):
-    #     return MA(self.TAKBar,n,matype)    
-    # # 取SMA值(SMA期數)
-    # def GetSMA(self,n):
-    #     return SMA(self.TAKBar,n)
-    # # 取WMA值(WMA期數)
-    # def GetWMA(self,n):
-    #     return WMA(self.TAKBar,n)
-    # # 取EMA值(EMA期數)
-    # def GetEMA(self,n):
-    #     return EMA(self.TAKBar,n)    
-    # # 取布林通道值(中線期數)
-    # def GetBBands(self,n):
-    #     return BBANDS(self.TAKBar,n)   ##BBANDS()函數有很多選項,此處只使用期數 n
-    # # RSI(RSI期數)
-    # def GetRSI(self,n):
-    #     return RSI(self.TAKBar,n)
-    # # 取KD值(RSV期數,K值期數,D值期數)
-    # def GetKD(self,rsv,k,d):
-    #     return STOCH(self.TAKBar,fastk_period = rsv,slowk_period = k,slowd_period = d)
-    # # 取得威廉指標        
-    # def GetWILLR(self,tp=14):  
-    #     return WILLR(self.TAKBar, timeperiod=tp)
-    # # 取得乖離率
-    # def GetBIAS(self,tn=10):
-    #     mavalue=MA(self.TAKBar,timeperiod=tn,matype=0)
-    #     return (self.TAKBar['close']-mavalue)/mavalue
+# 設定網頁標題
+html_temp = """
+    <div style="background-color:#3872fb;padding:10px;border-radius:10px">   
+    <h1 style="color:white;text-align:center;">金融看板與程式交易平台 </h1>
+    <h2 style="color:white;text-align:center;">Financial Dashboard and Program Trading </h2>
+    </div>
+    """
+stc.html(html_temp)
 
+# 自動尋找所有 pkl 檔案
+@st.cache_data(ttl=3600)
+def find_all_pkl_files():
+    data_folder = './'
+    pkl_files = glob.glob(os.path.join(data_folder, '*.pkl'))
+    file_display_names = []
+    file_lookup = {}
+    for filepath in pkl_files:
+        filename = os.path.basename(filepath)
+        if filename.startswith("stock_KBar_") or filename.startswith("future_KBar_"):
+            display_name = filename.replace("stock_KBar_", "股票：").replace("future_KBar_", "期貨：").replace(".pkl", "")
+            file_display_names.append(display_name)
+            file_lookup[display_name] = filepath
+    return file_display_names, file_lookup
 
+# 載入資料函式
+@st.cache_data(ttl=3600, show_spinner="正在加載資料...")
+def load_data(path):
+    return pd.read_pickle(path)
 
-            
+# 讀取所有檔案並顯示選單
+file_display_names, file_lookup = find_all_pkl_files()
+choice = st.selectbox("選擇金融商品與資料區間", file_display_names)
+selected_file = file_lookup[choice]
+df_original = load_data(selected_file)
+
+# 從檔名取得商品名稱與起訖日期
+file_parts = os.path.basename(selected_file).replace(".pkl", "").split("_")
+product_name = file_parts[2]  # 如 '2330'
+
+# 修正：確保 time 欄位為 datetime 格式
+df_original['time'] = pd.to_datetime(df_original['time'])
+
+# 日期選擇（使用日曆）
+st.subheader("選擇資料時間區間")
+min_date = df_original['time'].min().date()
+max_date = df_original['time'].max().date()
+start_date = st.date_input("開始日期", min_value=min_date, max_value=max_date, value=min_date)
+end_date = st.date_input("結束日期", min_value=start_date, max_value=max_date, value=max_date)
+
+# 轉為 datetime.datetime 格式
+start_date = datetime.datetime.combine(start_date, datetime.time.min)
+end_date = datetime.datetime.combine(end_date, datetime.time.max)
+
+# 篩選資料區間
+df = df_original[(df_original['time'] >= start_date) & (df_original['time'] <= end_date)]
+
+# 轉成字典格式供技術分析模組使用
+@st.cache_data(ttl=3600)
+def To_Dictionary(df, product_name):
+    KBar_dic = df.to_dict()
+    KBar_dic['open'] = np.array(list(KBar_dic['open'].values()))
+    KBar_dic['product'] = np.repeat(product_name, len(KBar_dic['open']))
+    KBar_dic['time'] = np.array([t.to_pydatetime() for t in list(KBar_dic['time'].values())])
+    KBar_dic['low'] = np.array(list(KBar_dic['low'].values()))
+    KBar_dic['high'] = np.array(list(KBar_dic['high'].values()))
+    KBar_dic['close'] = np.array(list(KBar_dic['close'].values()))
+    KBar_dic['volume'] = np.array(list(KBar_dic['volume'].values()))
+    KBar_dic['amount'] = np.array(list(KBar_dic['amount'].values()))
+    return KBar_dic
+
+KBar_dic = To_Dictionary(df, product_name)
+
+# 顯示預覽
+st.subheader("資料預覽")
+st.write(df.head())
+
+# 顯示圖表
+st.subheader("K 線圖與移動平均")
+fig, ax = plt.subplots(figsize=(12, 6))
+indicator_forKBar_short.CandlePlot(ax, KBar_dic)  # 使用外部模組畫圖
+st.pyplot(fig)
