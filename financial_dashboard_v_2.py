@@ -62,6 +62,11 @@ start_date = st.text_input("輸入開始日期 (格式: YYYY-MM-DD)", start_date
 end_date = st.text_input("輸入結束日期 (格式: YYYY-MM-DD)", end_date_str)
 start_date = datetime.datetime.strptime(start_date,'%Y-%m-%d')
 end_date = datetime.datetime.strptime(end_date,'%Y-%m-%d')
+
+# 修正：確保 time 欄位為 datetime 格式
+df_original['time'] = pd.to_datetime(df_original['time'])
+
+# 篩選資料區間
 df = df_original[(df_original['time'] >= start_date) & (df_original['time'] <= end_date)]
 
 # 轉成字典格式供技術分析模組使用
