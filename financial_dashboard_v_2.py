@@ -179,3 +179,32 @@ fig_macd.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['MACD_SIGNAL'], mode=
 fig_macd.add_trace(go.Bar(x=KBar_df['time'], y=KBar_df['MACD_HIST'], name='Histogram', marker=dict(color='gray')), row=2, col=1)
 fig_macd.update_layout(yaxis_title="MACD", yaxis2_title="Histogram", xaxis_title="時間")
 st.plotly_chart(fig_macd, use_container_width=True)
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 策略模擬與績效回測
+st.subheader("策略模擬：移動平均交叉")
+short_window = st.slider("短期 MA 週期", 2, 30, 5)
+long_window = st.slider("長期 MA 週期", 10, 60, 20)
+
+KBar_df['short_ma'] = KBar_df['close'].rolling(window=short_window).mean()
+KBar_df['long_ma'] = KBar_df['close'].rolling(window=long_window).mean()
+
+KBar_df['signal'] = 0
+KBar_df.loc[short_window:, 'signal'] = np.where(
+    KBar_df['short_ma'][short_window:] > KBar_df['long_ma'][short_window:], 1, 0
+)
+KBar_df['position'] = KBar_df['signal'].diff()
+
+KBar_df['return'] = KBar_df['close'].pct_change()
+KBar_df['strategy_return'] = KBar_df['signal'].shift(1) * KBar_df['return']
+KBar_df['cum_strategy_return'] = (1 + KBar_df['strategy_return']).cumprod()
+KBar_df['cum_market_return'] = (1 + KBar_df['return']).cumprod()
+
+fig_perf = go.Figure()
+fig_perf.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['cum_market_return'], name='市場報酬'))
+fig_perf.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['cum_strategy_return'], name='策略報酬'))
+fig_perf.update_layout(title='績效回測：累積報酬', xaxis_title='時間', yaxis_title='報酬')
+st.plotly_chart(fig_perf, use_container_width=True)
+
+st.write("最終策略報酬：", round(KBar_df['cum_strategy_return'].iloc[-1], 4))
+st.write("最終市場報酬：", round(KBar_df['cum_market_return'].iloc[-1], 4))
