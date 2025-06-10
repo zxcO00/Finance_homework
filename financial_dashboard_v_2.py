@@ -13,7 +13,7 @@ import streamlit.components.v1 as stc
 import datetime
 import matplotlib.pyplot as plt
 from order_streamlit import Record
-import indicator_f_Lo2_short
+import indicator_f_Lo2_short  # 必須已更新含 CandlePlot(KBar_dic)
 
 # 設定網頁標題
 html_temp = """
@@ -56,21 +56,20 @@ product_name = file_parts[2]  # 如 '2330'
 start_date_str = file_parts[3]
 end_date_str = file_parts[4]
 
-# 修正：確保 time 欄位為 datetime 格式
+# 確保時間格式正確
 df_original['time'] = pd.to_datetime(df_original['time'])
 
 # 日期選擇
 st.subheader("選擇資料時間區間")
 all_dates = df_original['time'].dt.date.unique()
 all_dates = sorted(all_dates)
-
 start_date = st.date_input("選擇開始日期", value=all_dates[0], min_value=all_dates[0], max_value=all_dates[-1])
 end_date = st.date_input("選擇結束日期", value=all_dates[-1], min_value=start_date, max_value=all_dates[-1])
 
 # 篩選資料區間
 df = df_original[(df_original['time'] >= pd.to_datetime(start_date)) & (df_original['time'] <= pd.to_datetime(end_date))]
 
-# 轉成字典格式供技術分析模組使用
+# 轉為字典格式
 @st.cache_data(ttl=3600)
 def To_Dictionary(df, product_name):
     KBar_dic = df.to_dict()
@@ -86,20 +85,19 @@ def To_Dictionary(df, product_name):
 
 KBar_dic = To_Dictionary(df, product_name)
 
-# 顯示預覽
+# 顯示資料摘要
 st.subheader("資料預覽")
 st.write("目前資料筆數：", len(KBar_dic['time']))
 st.write("時間範圍：", KBar_dic['time'][0], "~", KBar_dic['time'][-1])
 st.write(df.head())
 
-# 顯示圖表
-st.subheader("K 線圖與移動平均")
-fig, ax = plt.subplots(figsize=(12, 6))
-indicator_f_Lo2_short.CandlePlot(ax, KBar_dic)  # 使用外部模組畫圖
+# 顯示 K 線圖
+st.subheader("K 線圖與成交量")
+fig = indicator_f_Lo2_short.CandlePlot(KBar_dic)
 st.pyplot(fig)
 
-# 測試圖確認顯示功能是否正常
+# 額外測試用圖表
+st.subheader("測試圖表")
 test_fig, test_ax = plt.subplots()
 test_ax.plot(np.arange(10), np.random.rand(10))
-st.subheader("測試圖表")
 st.pyplot(test_fig)
