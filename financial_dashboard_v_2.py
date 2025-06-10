@@ -68,9 +68,23 @@ end_date   = st.date_input("結束日期", value=all_dates[-1], min_value=start_
 df = df_original[(df_original['time'] >= pd.to_datetime(start_date)) &
                  (df_original['time'] <= pd.to_datetime(end_date))]
 
+# ──────────────────────────────────────────────────────────────────────────────
 # 限制最多顯示最近500筆
-if len(df) > 500:
-    df = df.iloc[-500:]
+#if len(df) > 500:
+#    df = df.iloc[-500:]
+#
+
+# 資料筆數上限（使用者輸入）與提醒
+st.subheader("設定顯示的資料筆數上限")
+max_rows = st.number_input("輸入最大筆數（最近幾筆資料）", min_value=100, max_value=2000, value=500, step=100)
+
+# 顯示提示：過多資料可能造成顯示問題
+if max_rows > 1500:
+    st.warning("⚠️ 警告：資料筆數過多可能導致圖表無法顯示或系統卡頓，建議不要超過 1500 筆！")
+
+# 限制最多顯示 max_rows 筆資料（從尾端開始）
+if len(df) > max_rows:
+    df = df.iloc[-int(max_rows):]
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 轉為技術分析用字典
