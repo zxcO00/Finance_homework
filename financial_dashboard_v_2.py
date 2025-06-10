@@ -96,4 +96,23 @@ KBar_dic = To_Dictionary(df, product_name)
 st.subheader("資料預覽")
 st.write(df.head())
 
+# 繪製蠟燭圖與技術指標圖
+st.subheader("蠟燭圖與技術指標")
+fig, ax = plt.subplots(figsize=(12, 6))
+
+# 繪製 K 線圖
+indicator_forKBar_short.CandlePlot(ax, KBar_dic)
+
+# 計算與繪製 MA (5, 20)
+ma5 = indicator_forKBar_short.MA(KBar_dic, 5)
+ma20 = indicator_forKBar_short.MA(KBar_dic, 20)
+ax.plot(KBar_dic['time'], ma5, label='MA5')
+ax.plot(KBar_dic['time'], ma20, label='MA20')
+
+ax.legend()
+ax.set_title(f"{product_name} 蠟燭圖與移動平均線")
+ax.set_xlabel("時間")
+ax.set_ylabel("價格")
+st.pyplot(fig)
+
 # 更多功能（如技術指標、程式交易）可依需求加入...
