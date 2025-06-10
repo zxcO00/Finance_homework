@@ -5,7 +5,7 @@ import pandas as pd
 import mplfinance as mpf
 
 # 🔹 補上畫圖函式：K 線圖用
-def CandlePlot(ax, KBar_dic):
+def CandlePlot(KBar_dic):
     df = pd.DataFrame({
         'Open': KBar_dic['open'],
         'High': KBar_dic['high'],
@@ -13,14 +13,16 @@ def CandlePlot(ax, KBar_dic):
         'Close': KBar_dic['close'],
         'Volume': KBar_dic['volume']
     }, index=pd.to_datetime(KBar_dic['time']))
-    mpf.plot(df, type='candle', volume=True, ax=ax, style='charles')
+    
+    # 建立 K 線圖與成交量圖，自動產生子圖並回傳 fig 給外部顯示
+    fig, axes = mpf.plot(df, type='candle', volume=True, style='charles', returnfig=True)
+    return fig
 
 # K線指標class
 # 參數 型態(1:'time' , 2:'volume') 週期
 class KBar():
     def __init__(self, date, type='time', cycle=1):
         if type == 'time':
-            # 定義週期
             self.Cycle = datetime.timedelta(minutes=cycle)
             self.StartTime = datetime.datetime.strptime(date + '084500', '%Y%m%d%H%M%S') - (self.Cycle * 2)
             self.Time = numpy.array([self.StartTime])
@@ -83,5 +85,3 @@ class KBar():
             self.Close = numpy.append(self.Close, price)
             self.Amount = amount
             return 1
-
-# ⬇️ 其他類別略（若需要可補充，如 BigOrder、BSPower 等）
