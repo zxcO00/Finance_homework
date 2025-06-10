@@ -208,3 +208,27 @@ st.plotly_chart(fig_perf, use_container_width=True)
 
 st.write("最終策略報酬：", round(KBar_df['cum_strategy_return'].iloc[-1], 4))
 st.write("最終市場報酬：", round(KBar_df['cum_market_return'].iloc[-1], 4))
+
+# ──────────────────────────────────────────────────────────────────────────────
+# RSI 策略模擬與績效回測
+st.subheader("策略模擬：RSI 策略（超賣買進，超買賣出）")
+
+rsi_buy_thres = st.slider("超賣進場（低於）", 5, 50, 30, key='rsi_buy')
+rsi_sell_thres = st.slider("超買出場（高於）", 50, 95, 70, key='rsi_sell')
+
+KBar_df['rsi_signal'] = 0
+KBar_df.loc[KBar_df['RSI'] < rsi_buy_thres, 'rsi_signal'] = 1   # 進場
+KBar_df.loc[KBar_df['RSI'] > rsi_sell_thres, 'rsi_signal'] = 0  # 出場
+KBar_df['rsi_signal'] = KBar_df['rsi_signal'].ffill()  # 持倉訊號延續
+
+KBar_df['rsi_strat_return'] = KBar_df['rsi_signal'].shift(1) * KBar_df['return']
+KBar_df['cum_rsi_strat_return'] = (1 + KBar_df['rsi_strat_return']).cumprod()
+
+fig_rsi_perf = go.Figure()
+fig_rsi_perf.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['cum_market_return'], name='市場報酬'))
+fig_rsi_perf.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['cum_rsi_strat_return'], name='RSI 策略報酬'))
+fig_rsi_perf.update_layout(title='RSI 策略績效：累積報酬', xaxis_title='時間', yaxis_title='報酬')
+st.plotly_chart(fig_rsi_perf, use_container_width=True)
+
+st.write("最終 RSI 策略報酬：", round(KBar_df['cum_rsi_strat_return'].iloc[-1], 4))
+
