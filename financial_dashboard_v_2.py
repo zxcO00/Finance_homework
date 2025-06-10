@@ -50,6 +50,9 @@ choice = st.selectbox("選擇金融商品與資料區間", file_display_names)
 selected_file = file_lookup[choice]
 df_original = load_data(selected_file)
 
+# 修正：確保 time 欄位為 datetime 格式
+df_original['time'] = pd.to_datetime(df_original['time'])
+
 # 從檔名取得商品名稱與起訖日期
 file_parts = os.path.basename(selected_file).replace(".pkl", "").split("_")
 product_name = file_parts[2]  # 如 '2330'
@@ -59,7 +62,7 @@ end_date_str = file_parts[4]
 # 日期選擇
 st.subheader("選擇資料時間區間")
 # 從資料中擷取所有日期並轉為字串格式
-all_dates = df_original['time'].dt.strftime('%Y-%m-%d').unique().tolist()
+all_dates = df_original['time'].dt.strftime('%Y-%m-%d').dropna().unique().tolist()
 all_dates.sort()
 
 # 選擇起訖日期（用下拉選單）
@@ -70,9 +73,6 @@ end_date_str = st.selectbox("選擇結束日期", filtered_end_dates, index=len(
 # 轉回 datetime 格式
 start_date = datetime.datetime.strptime(start_date_str, '%Y-%m-%d')
 end_date = datetime.datetime.strptime(end_date_str, '%Y-%m-%d')
-
-# 修正：確保 time 欄位為 datetime 格式
-df_original['time'] = pd.to_datetime(df_original['time'])
 
 # 篩選資料區間
 df = df_original[(df_original['time'] >= start_date) & (df_original['time'] <= end_date)]
