@@ -222,3 +222,6 @@ class AccVol():
         
 
 
+
+
+# === 補上 CandlePlot 函式 ===
