@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-金融資料視覺化看板 (自動讀取多檔 .pkl)
-"""
-
-# 載入必要模組
 import os
 import glob
 import numpy as np
@@ -13,9 +8,9 @@ import streamlit.components.v1 as stc
 import datetime
 import matplotlib.pyplot as plt
 from order_streamlit import Record
-import indicator_f_Lo2_short  # 必須已更新含 CandlePlot(KBar_dic)
+import indicator_f_Lo2_short
 
-# 設定網頁標題
+# 網頁標題
 html_temp = """
     <div style="background-color:#3872fb;padding:10px;border-radius:10px">   
     <h1 style="color:white;text-align:center;">金融看板與程式交易平台 </h1>
@@ -24,7 +19,7 @@ html_temp = """
     """
 stc.html(html_temp)
 
-# 自動尋找所有 pkl 檔案
+# 自動找所有 .pkl 檔案
 @st.cache_data(ttl=3600)
 def find_all_pkl_files():
     data_folder = './'
@@ -39,37 +34,35 @@ def find_all_pkl_files():
             file_lookup[display_name] = filepath
     return file_display_names, file_lookup
 
-# 載入資料函式
 @st.cache_data(ttl=3600, show_spinner="正在加載資料...")
 def load_data(path):
     return pd.read_pickle(path)
 
-# 讀取所有檔案並顯示選單
+# 選擇商品
 file_display_names, file_lookup = find_all_pkl_files()
 choice = st.selectbox("選擇金融商品與資料區間", file_display_names)
 selected_file = file_lookup[choice]
 df_original = load_data(selected_file)
 
-# 從檔名取得商品名稱與起訖日期
+# 從檔名抓商品代碼與日期
 file_parts = os.path.basename(selected_file).replace(".pkl", "").split("_")
-product_name = file_parts[2]  # 如 '2330'
-start_date_str = file_parts[3]
-end_date_str = file_parts[4]
-
-# 確保時間格式正確
+product_name = file_parts[2]
 df_original['time'] = pd.to_datetime(df_original['time'])
 
 # 日期選擇
 st.subheader("選擇資料時間區間")
-all_dates = df_original['time'].dt.date.unique()
-all_dates = sorted(all_dates)
+all_dates = sorted(df_original['time'].dt.date.unique())
 start_date = st.date_input("選擇開始日期", value=all_dates[0], min_value=all_dates[0], max_value=all_dates[-1])
 end_date = st.date_input("選擇結束日期", value=all_dates[-1], min_value=start_date, max_value=all_dates[-1])
 
-# 篩選資料區間
+# 篩選日期區間
 df = df_original[(df_original['time'] >= pd.to_datetime(start_date)) & (df_original['time'] <= pd.to_datetime(end_date))]
 
-# 轉為字典格式
+# ✅ 限制顯示最近 500 筆
+if len(df) > 500:
+    df = df.iloc[-500:]
+
+# 轉換為字典格式
 @st.cache_data(ttl=3600)
 def To_Dictionary(df, product_name):
     KBar_dic = df.to_dict()
@@ -85,18 +78,21 @@ def To_Dictionary(df, product_name):
 
 KBar_dic = To_Dictionary(df, product_name)
 
-# 顯示資料摘要
+# 資料摘要
 st.subheader("資料預覽")
 st.write("目前資料筆數：", len(KBar_dic['time']))
 st.write("時間範圍：", KBar_dic['time'][0], "~", KBar_dic['time'][-1])
 st.write(df.head())
 
-# 顯示 K 線圖
+# K線圖畫圖區塊
 st.subheader("K 線圖與成交量")
-fig = indicator_f_Lo2_short.CandlePlot(KBar_dic)
-st.pyplot(fig)
+try:
+    fig = indicator_f_Lo2_short.CandlePlot(KBar_dic)
+    st.pyplot(fig)
+except Exception as e:
+    st.error(f"畫圖失敗：{e}")
 
-# 額外測試用圖表
+# 測試圖表
 st.subheader("測試圖表")
 test_fig, test_ax = plt.subplots()
 test_ax.plot(np.arange(10), np.random.rand(10))
