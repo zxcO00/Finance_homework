@@ -206,8 +206,9 @@ fig_perf.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['cum_strategy_return'
 fig_perf.update_layout(title='績效回測：累積報酬', xaxis_title='時間', yaxis_title='報酬')
 st.plotly_chart(fig_perf, use_container_width=True)
 
-st.write("最終策略報酬：", round(KBar_df['cum_strategy_return'].iloc[-1], 4))
-st.write("最終市場報酬：", round(KBar_df['cum_market_return'].iloc[-1], 4))
+
+st.write("最終策略報酬：", f"{round(KBar_df['cum_strategy_return'].iloc[-1] * 100, 2)}%")
+st.write("最終市場報酬：", f"{round(KBar_df['cum_market_return'].iloc[-1] * 100, 2)}%")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # RSI 策略模擬與績效回測
@@ -230,4 +231,6 @@ fig_rsi_perf.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['cum_rsi_strat_re
 fig_rsi_perf.update_layout(title='RSI 策略績效：累積報酬', xaxis_title='時間', yaxis_title='報酬')
 st.plotly_chart(fig_rsi_perf, use_container_width=True)
 
-st.write("最終 RSI 策略報酬：", round(KBar_df['cum_rsi_strat_return'].iloc[-1], 4))
+
+st.write("最終 RSI 策略報酬：", f"{round(KBar_df['cum_rsi_strat_return'].iloc[-1] * 100, 2)}%")
+
