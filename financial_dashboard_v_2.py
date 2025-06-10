@@ -109,31 +109,63 @@ st.write("筆數：", len(KBar_df))
 st.write("時間範圍：", KBar_df['time'].iloc[0], "～", KBar_df['time'].iloc[-1])
 st.dataframe(KBar_df.head())
 
-# ──────────────────────────────────────────────────────────────────────────────
-# (策略模擬 + 績效回測)
-st.subheader("策略模擬：移動平均交叉")
-short_window = st.slider("短期 MA 週期", 2, 30, 5)
-long_window = st.slider("長期 MA 週期", 10, 60, 20)
+# 繪製各技術指標圖（固定顯示）
+st.subheader("K 線圖與技術指標")
+try:
+    fig_candle = indicator_f_Lo2_short.CandlePlot(KBar_dic)
+    st.pyplot(fig_candle)
+except Exception as e:
+    st.error(f"K 線圖繪製失敗：{e}")
 
-KBar_df['short_ma'] = KBar_df['close'].rolling(window=short_window).mean()
-KBar_df['long_ma'] = KBar_df['close'].rolling(window=long_window).mean()
+# MA 計算與圖形
+KBar_df['MA_short'] = KBar_df['close'].rolling(window=5).mean()
+KBar_df['MA_long'] = KBar_df['close'].rolling(window=20).mean()
+fig_ma = make_subplots(specs=[[{"secondary_y": True}]])
+fig_ma.add_trace(go.Candlestick(x=KBar_df['time'], open=KBar_df['open'], high=KBar_df['high'],
+                                low=KBar_df['low'], close=KBar_df['close'], name='K 線'), secondary_y=True)
+fig_ma.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['MA_short'], name='MA5'), secondary_y=True)
+fig_ma.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['MA_long'], name='MA20'), secondary_y=True)
+fig_ma.add_trace(go.Bar(x=KBar_df['time'], y=KBar_df['volume'], name='成交量', marker=dict(color='lightgray')), secondary_y=False)
+st.plotly_chart(fig_ma, use_container_width=True)
 
-KBar_df['signal'] = 0
-KBar_df.loc[short_window:, 'signal'] = np.where(
-    KBar_df['short_ma'][short_window:] > KBar_df['long_ma'][short_window:], 1, 0
-)
-KBar_df['position'] = KBar_df['signal'].diff()
+# RSI 計算與圖形
+rsi_period = 14
+delta = KBar_df['close'].diff()
+gain = delta.where(delta > 0, 0).rolling(rsi_period).mean()
+loss = (-delta.where(delta < 0, 0)).rolling(rsi_period).mean()
+rs = gain / loss
+KBar_df['RSI'] = 100 - (100 / (1 + rs))
+fig_rsi = go.Figure()
+fig_rsi.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['RSI'], mode='lines', name='RSI'))
+fig_rsi.add_hline(y=70, line_dash="dash", line_color="red")
+fig_rsi.add_hline(y=30, line_dash="dash", line_color="green")
+st.plotly_chart(fig_rsi, use_container_width=True)
 
-KBar_df['return'] = KBar_df['close'].pct_change()
-KBar_df['strategy_return'] = KBar_df['signal'].shift(1) * KBar_df['return']
-KBar_df['cum_strategy_return'] = (1 + KBar_df['strategy_return']).cumprod()
-KBar_df['cum_market_return'] = (1 + KBar_df['return']).cumprod()
+# 布林通道
+KBar_df['BB_MID'] = KBar_df['close'].rolling(20).mean()
+KBar_df['BB_STD'] = KBar_df['close'].rolling(20).std()
+KBar_df['BB_UP'] = KBar_df['BB_MID'] + 2 * KBar_df['BB_STD']
+KBar_df['BB_DOWN'] = KBar_df['BB_MID'] - 2 * KBar_df['BB_STD']
+fig_bb = make_subplots(specs=[[{"secondary_y": True}]])
+fig_bb.add_trace(go.Candlestick(x=KBar_df['time'], open=KBar_df['open'], high=KBar_df['high'],
+                                 low=KBar_df['low'], close=KBar_df['close'], name='K 線'), secondary_y=True)
+fig_bb.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['BB_UP'], name='上軌'), secondary_y=True)
+fig_bb.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['BB_MID'], name='中軌'), secondary_y=True)
+fig_bb.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['BB_DOWN'], name='下軌'), secondary_y=True)
+fig_bb.add_trace(go.Bar(x=KBar_df['time'], y=KBar_df['volume'], name='成交量', marker=dict(color='lightgray')), secondary_y=False)
+st.plotly_chart(fig_bb, use_container_width=True)
 
-fig_perf = go.Figure()
-fig_perf.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['cum_market_return'], name='市場報酬'))
-fig_perf.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['cum_strategy_return'], name='策略報酬'))
-fig_perf.update_layout(title='績效回測：累積報酬', xaxis_title='時間', yaxis_title='報酬')
-st.plotly_chart(fig_perf, use_container_width=True)
+# MACD 計算與圖形
+ema_fast = KBar_df['close'].ewm(span=12, adjust=False).mean()
+ema_slow = KBar_df['close'].ewm(span=26, adjust=False).mean()
+KBar_df['MACD'] = ema_fast - ema_slow
+KBar_df['MACD_SIGNAL'] = KBar_df['MACD'].ewm(span=9, adjust=False).mean()
+KBar_df['MACD_HIST'] = KBar_df['MACD'] - KBar_df['MACD_SIGNAL']
+fig_macd = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
+fig_macd.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['MACD'], name='MACD'), row=1, col=1)
+fig_macd.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['MACD_SIGNAL'], name='Signal'), row=1, col=1)
+fig_macd.add_trace(go.Bar(x=KBar_df['time'], y=KBar_df['MACD_HIST'], name='Hist'), row=2, col=1)
+st.plotly_chart(fig_macd, use_container_width=True)
 
-st.write("最終策略報酬：", round(KBar_df['cum_strategy_return'].iloc[-1], 4))
-st.write("最終市場報酬：", round(KBar_df['cum_market_return'].iloc[-1], 4))
+# 策略績效圖依然保留
+# 已內建於前一段修改中，無需重複
