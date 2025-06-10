@@ -13,7 +13,8 @@ import streamlit.components.v1 as stc
 import datetime
 import matplotlib.pyplot as plt
 from order_streamlit import Record
-import indicator_forKBar_short
+# 已整合 CandlePlot，暫時不需外部模組
+#import indicator_forKBar_short
 
 # 設定網頁標題
 html_temp = """
@@ -92,6 +93,30 @@ def To_Dictionary(df, product_name):
 
 KBar_dic = To_Dictionary(df, product_name)
 
+def CandlePlot(ax, KBar_dic):
+    import matplotlib.dates as mdates
+    import matplotlib.ticker as ticker
+    import matplotlib.pyplot as plt
+
+    Time = KBar_dic['time']
+    Open = KBar_dic['open']
+    High = KBar_dic['high']
+    Low = KBar_dic['low']
+    Close = KBar_dic['close']
+
+    Time = mdates.date2num(Time)
+    ohlc = []
+    for i in range(len(Time)):
+        ohlc.append([Time[i], Open[i], High[i], Low[i], Close[i]])
+
+    from mplfinance.original_flavor import candlestick_ohlc
+    candlestick_ohlc(ax, ohlc, width=0.6, colorup='r', colordown='g')
+
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    ax.xaxis.set_major_locator(ticker.MaxNLocator(10))
+    plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
+
+
 # 顯示預覽
 st.subheader("資料預覽")
 st.write(df.head())
@@ -101,11 +126,12 @@ st.subheader("蠟燭圖與技術指標")
 fig, ax = plt.subplots(figsize=(12, 6))
 
 # 繪製 K 線圖
-indicator_forKBar_short.CandlePlot(ax, KBar_dic)
+CandlePlot(ax, KBar_dic)
 
 # 計算與繪製 MA (5, 20)
-ma5 = indicator_forKBar_short.MA(KBar_dic, 5)
-ma20 = indicator_forKBar_short.MA(KBar_dic, 20)
+# 簡單計算 MA5 和 MA20
+ma5 = pd.Series(KBar_dic['close']).rolling(window=5).mean()
+ma20 = pd.Series(KBar_dic['close']).rolling(window=20).mean()
 ax.plot(KBar_dic['time'], ma5, label='MA5')
 ax.plot(KBar_dic['time'], ma20, label='MA20')
 
