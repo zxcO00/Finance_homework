@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-金融資料視覺化看板 (自動讀取多檔 .pkl，並呈現 K 棒、MA、RSI、Bollinger 通道、MACD)
+金融資料視覺化看板 (自動讀取多檔 .pkl，並呈現 K 棒、MA、RSI、Bollinger 通道、MACD，並支援策略模擬與績效回測)
 """
 
 import os
@@ -110,33 +110,30 @@ st.write("時間範圍：", KBar_df['time'].iloc[0], "～", KBar_df['time'].iloc
 st.dataframe(KBar_df.head())
 
 # ──────────────────────────────────────────────────────────────────────────────
-# (1) K 線圖 + 成交量
-st.subheader("K 線圖與成交量")
-try:
-    fig_candle = indicator_f_Lo2_short.CandlePlot(KBar_dic)
-    st.pyplot(fig_candle)
-except Exception as e:
-    st.error(f"K 線圖繪製失敗：{e}")
+# (策略模擬 + 績效回測)
+st.subheader("策略模擬：移動平均交叉")
+short_window = st.slider("短期 MA 週期", 2, 30, 5)
+long_window = st.slider("長期 MA 週期", 10, 60, 20)
 
-# ──────────────────────────────────────────────────────────────────────────────
-# (6) 策略模擬區塊
-st.subheader("策略模擬：簡易移動平均交叉")
-fast_period = st.slider("短期均線週期", 1, 30, 5)
-slow_period = st.slider("長期均線週期", 10, 60, 20)
+KBar_df['short_ma'] = KBar_df['close'].rolling(window=short_window).mean()
+KBar_df['long_ma'] = KBar_df['close'].rolling(window=long_window).mean()
 
-KBar_df['fast_ma'] = KBar_df['close'].rolling(window=fast_period).mean()
-KBar_df['slow_ma'] = KBar_df['close'].rolling(window=slow_period).mean()
+KBar_df['signal'] = 0
+KBar_df.loc[short_window:, 'signal'] = np.where(
+    KBar_df['short_ma'][short_window:] > KBar_df['long_ma'][short_window:], 1, 0
+)
+KBar_df['position'] = KBar_df['signal'].diff()
 
-KBar_df['position'] = 0
-KBar_df.loc[KBar_df['fast_ma'] > KBar_df['slow_ma'], 'position'] = 1
-KBar_df.loc[KBar_df['fast_ma'] < KBar_df['slow_ma'], 'position'] = -1
-KBar_df['strategy_return'] = KBar_df['position'].shift(1) * KBar_df['close'].pct_change()
+KBar_df['return'] = KBar_df['close'].pct_change()
+KBar_df['strategy_return'] = KBar_df['signal'].shift(1) * KBar_df['return']
+KBar_df['cum_strategy_return'] = (1 + KBar_df['strategy_return']).cumprod()
+KBar_df['cum_market_return'] = (1 + KBar_df['return']).cumprod()
 
-fig_strategy = go.Figure()
-fig_strategy.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['close'], name='收盤價'))
-fig_strategy.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['fast_ma'], name=f'MA{fast_period}'))
-fig_strategy.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['slow_ma'], name=f'MA{slow_period}'))
-fig_strategy.update_layout(title="策略模擬：移動平均交叉", xaxis_title="時間", yaxis_title="價格")
-st.plotly_chart(fig_strategy, use_container_width=True)
+fig_perf = go.Figure()
+fig_perf.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['cum_market_return'], name='市場報酬'))
+fig_perf.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['cum_strategy_return'], name='策略報酬'))
+fig_perf.update_layout(title='績效回測：累積報酬', xaxis_title='時間', yaxis_title='報酬')
+st.plotly_chart(fig_perf, use_container_width=True)
 
-st.metric("累積報酬 (%)", f"{(KBar_df['strategy_return'].cumsum() * 100).iloc[-1]:.2f}%")
+st.write("最終策略報酬：", round(KBar_df['cum_strategy_return'].iloc[-1], 4))
+st.write("最終市場報酬：", round(KBar_df['cum_market_return'].iloc[-1], 4))
