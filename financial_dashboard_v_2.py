@@ -37,7 +37,10 @@ def find_all_pkl_files():
     for filepath in pkl_files:
         filename = os.path.basename(filepath)
         if filename.startswith("stock_KBar_") or filename.startswith("future_KBar_"):
-            display_name = filename                 .replace("stock_KBar_", "股票：")                 .replace("future_KBar_", "期貨：")                 .replace(".pkl", "")
+            display_name = filename \
+                .replace("stock_KBar_", "股票：") \
+                .replace("future_KBar_", "期貨：") \
+                .replace(".pkl", "")
             file_display_names.append(display_name)
             file_lookup[display_name] = filepath
     return file_display_names, file_lookup
@@ -114,3 +117,54 @@ try:
     st.pyplot(fig_candle)
 except Exception as e:
     st.error(f"K 線圖繪製失敗：{e}")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# (2) RSI 指標圖
+st.subheader("RSI 指標")
+rsi_period = st.slider("RSI 週期", 2, 30, 14)
+delta = KBar_df['close'].diff()
+gain = delta.where(delta > 0, 0).rolling(window=rsi_period).mean()
+loss = -delta.where(delta < 0, 0).rolling(window=rsi_period).mean()
+rs = gain / loss
+KBar_df['RSI'] = 100 - (100 / (1 + rs))
+fig_rsi = go.Figure()
+fig_rsi.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['RSI'], mode='lines', name='RSI'))
+fig_rsi.add_hline(y=70, line_dash="dash", line_color="red")
+fig_rsi.add_hline(y=30, line_dash="dash", line_color="green")
+fig_rsi.update_layout(title="RSI 指標", xaxis_title="時間", yaxis_title="RSI")
+st.plotly_chart(fig_rsi, use_container_width=True)
+
+# ──────────────────────────────────────────────────────────────────────────────
+# (3) 布林通道
+st.subheader("布林通道")
+bb_period = st.slider("布林通道週期", 5, 40, 20)
+bb_std = st.slider("標準差倍數", 1.0, 3.0, 2.0)
+KBar_df['BB_MID'] = KBar_df['close'].rolling(bb_period).mean()
+KBar_df['BB_STD'] = KBar_df['close'].rolling(bb_period).std()
+KBar_df['BB_UP'] = KBar_df['BB_MID'] + bb_std * KBar_df['BB_STD']
+KBar_df['BB_DOWN'] = KBar_df['BB_MID'] - bb_std * KBar_df['BB_STD']
+fig_bb = go.Figure()
+fig_bb.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['close'], mode='lines', name='收盤價'))
+fig_bb.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['BB_UP'], mode='lines', name='上通道'))
+fig_bb.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['BB_DOWN'], mode='lines', name='下通道'))
+fig_bb.update_layout(title="布林通道", xaxis_title="時間", yaxis_title="價格")
+st.plotly_chart(fig_bb, use_container_width=True)
+
+# ──────────────────────────────────────────────────────────────────────────────
+# (4) MACD 指標
+st.subheader("MACD 指標")
+fastp = st.slider("快線週期", 5, 30, 12)
+slowp = st.slider("慢線週期", 10, 60, 26)
+sigp = st.slider("訊號線週期", 5, 20, 9)
+ema_fast = KBar_df['close'].ewm(span=fastp, adjust=False).mean()
+ema_slow = KBar_df['close'].ewm(span=slowp, adjust=False).mean()
+KBar_df['MACD'] = ema_fast - ema_slow
+KBar_df['MACD_SIGNAL'] = KBar_df['MACD'].ewm(span=sigp, adjust=False).mean()
+KBar_df['MACD_HIST'] = KBar_df['MACD'] - KBar_df['MACD_SIGNAL']
+fig_macd = make_subplots(rows=2, cols=1, shared_xaxes=True,
+                         row_heights=[0.7, 0.3], vertical_spacing=0.05)
+fig_macd.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['MACD'], mode='lines', name='MACD'), row=1, col=1)
+fig_macd.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['MACD_SIGNAL'], mode='lines', name='Signal'), row=1, col=1)
+fig_macd.add_trace(go.Bar(x=KBar_df['time'], y=KBar_df['MACD_HIST'], name='Histogram'), row=2, col=1)
+fig_macd.update_layout(title="MACD 指標", xaxis_title="時間")
+st.plotly_chart(fig_macd, use_container_width=True)
