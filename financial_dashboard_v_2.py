@@ -234,3 +234,4 @@ st.plotly_chart(fig_rsi_perf, use_container_width=True)
 
 st.write("最終 RSI 策略報酬：", f"{round(KBar_df['cum_rsi_strat_return'].iloc[-1] * 100, 2)}%")
 
+st.success(f"最終 RSI 策略報酬：{(KBar_df['cum_rsi_strat_return'].iloc[-1] - 1) * 100:.2f}%")
