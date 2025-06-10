@@ -104,7 +104,7 @@ KBar_df  = pd.DataFrame({
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 資料摘要
-st.subheader("資料預覽")
+st.subheader("資料預覽(為方便結果展示目前資料上限為500筆)")
 st.write("筆數：", len(KBar_df))
 st.write("時間範圍：", KBar_df['time'].iloc[0], "～", KBar_df['time'].iloc[-1])
 st.dataframe(KBar_df.head())
