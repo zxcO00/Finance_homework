@@ -207,8 +207,12 @@ fig_perf.update_layout(title='績效回測：累積報酬', xaxis_title='時間'
 st.plotly_chart(fig_perf, use_container_width=True)
 
 
-st.write("最終策略報酬：", f"{round(KBar_df['cum_strategy_return'].iloc[-1] * 100, 2)}%")
-st.write("最終市場報酬：", f"{round(KBar_df['cum_market_return'].iloc[-1] * 100, 2)}%")
+#st.write("最終策略報酬：", f"{round(KBar_df['cum_strategy_return'].iloc[-1] * 100, 2)}%")
+#st.write("最終市場報酬：", f"{round(KBar_df['cum_market_return'].iloc[-1] * 100, 2)}%")
+
+st.success(f"最終策略報酬：{(KBar_df['cum_strategy_return'].iloc[-1] - 1) * 100:.2f}%")
+st.info(f"最終市場報酬：{(KBar_df['cum_market_return'].iloc[-1] - 1) * 100:.2f}%")
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # RSI 策略模擬與績效回測
@@ -232,6 +236,6 @@ fig_rsi_perf.update_layout(title='RSI 策略績效：累積報酬', xaxis_title=
 st.plotly_chart(fig_rsi_perf, use_container_width=True)
 
 
-st.write("最終 RSI 策略報酬：", f"{round(KBar_df['cum_rsi_strat_return'].iloc[-1] * 100, 2)}%")
+#st.write("最終 RSI 策略報酬：", f"{round(KBar_df['cum_rsi_strat_return'].iloc[-1] * 100, 2)}%")
 
 st.success(f"最終 RSI 策略報酬：{(KBar_df['cum_rsi_strat_return'].iloc[-1] - 1) * 100:.2f}%")
