@@ -37,10 +37,7 @@ def find_all_pkl_files():
     for filepath in pkl_files:
         filename = os.path.basename(filepath)
         if filename.startswith("stock_KBar_") or filename.startswith("future_KBar_"):
-            display_name = filename \
-                .replace("stock_KBar_", "股票：") \
-                .replace("future_KBar_", "期貨：") \
-                .replace(".pkl", "")
+            display_name = filename                 .replace("stock_KBar_", "股票：")                 .replace("future_KBar_", "期貨：")                 .replace(".pkl", "")
             file_display_names.append(display_name)
             file_lookup[display_name] = filepath
     return file_display_names, file_lookup
@@ -109,63 +106,76 @@ st.write("筆數：", len(KBar_df))
 st.write("時間範圍：", KBar_df['time'].iloc[0], "～", KBar_df['time'].iloc[-1])
 st.dataframe(KBar_df.head())
 
-# 繪製各技術指標圖（固定顯示）
-st.subheader("K 線圖與技術指標")
+# ──────────────────────────────────────────────────────────────────────────────
+# K 線圖與成交量
+st.subheader("K 線圖與成交量")
 try:
     fig_candle = indicator_f_Lo2_short.CandlePlot(KBar_dic)
     st.pyplot(fig_candle)
 except Exception as e:
     st.error(f"K 線圖繪製失敗：{e}")
 
-# MA 計算與圖形
-KBar_df['MA_short'] = KBar_df['close'].rolling(window=5).mean()
-KBar_df['MA_long'] = KBar_df['close'].rolling(window=20).mean()
+# 移動平均線 MA
+st.subheader("移動平均線 (MA)")
+ma_long  = st.slider("長期 MA 週期", 1, 60, 20, key='ma_long')
+ma_short = st.slider("短期 MA 週期", 1, 60, 5,  key='ma_short')
+KBar_df['MA_long']  = KBar_df['close'].rolling(window=ma_long).mean()
+KBar_df['MA_short'] = KBar_df['close'].rolling(window=ma_short).mean()
 fig_ma = make_subplots(specs=[[{"secondary_y": True}]])
 fig_ma.add_trace(go.Candlestick(x=KBar_df['time'], open=KBar_df['open'], high=KBar_df['high'],
                                 low=KBar_df['low'], close=KBar_df['close'], name='K 線'), secondary_y=True)
-fig_ma.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['MA_short'], name='MA5'), secondary_y=True)
-fig_ma.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['MA_long'], name='MA20'), secondary_y=True)
+fig_ma.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['MA_long'], mode='lines', name=f'MA {ma_long}'), secondary_y=True)
+fig_ma.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['MA_short'], mode='lines', name=f'MA {ma_short}'), secondary_y=True)
 fig_ma.add_trace(go.Bar(x=KBar_df['time'], y=KBar_df['volume'], name='成交量', marker=dict(color='lightgray')), secondary_y=False)
+fig_ma.update_layout(yaxis2_title="價格", yaxis_title="成交量")
 st.plotly_chart(fig_ma, use_container_width=True)
 
-# RSI 計算與圖形
-rsi_period = 14
+# RSI
+st.subheader("相對強弱指標 (RSI)")
+rsi_period = st.slider("RSI 週期", 2, 30, 14, key='rsi')
 delta = KBar_df['close'].diff()
-gain = delta.where(delta > 0, 0).rolling(rsi_period).mean()
-loss = (-delta.where(delta < 0, 0)).rolling(rsi_period).mean()
-rs = gain / loss
+gain  = delta.where(delta>0, 0).rolling(window=rsi_period).mean()
+loss  = (-delta.where(delta<0, 0)).rolling(window=rsi_period).mean()
+rs    = gain / loss
 KBar_df['RSI'] = 100 - (100 / (1 + rs))
 fig_rsi = go.Figure()
 fig_rsi.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['RSI'], mode='lines', name='RSI'))
 fig_rsi.add_hline(y=70, line_dash="dash", line_color="red")
 fig_rsi.add_hline(y=30, line_dash="dash", line_color="green")
+fig_rsi.update_layout(yaxis_title="RSI 值", xaxis_title="時間")
 st.plotly_chart(fig_rsi, use_container_width=True)
 
 # 布林通道
-KBar_df['BB_MID'] = KBar_df['close'].rolling(20).mean()
-KBar_df['BB_STD'] = KBar_df['close'].rolling(20).std()
-KBar_df['BB_UP'] = KBar_df['BB_MID'] + 2 * KBar_df['BB_STD']
-KBar_df['BB_DOWN'] = KBar_df['BB_MID'] - 2 * KBar_df['BB_STD']
+st.subheader("布林通道 (Bollinger Bands)")
+bb_period = st.slider("布林通道週期", 5, 60, 20, key='bb_period')
+bb_std    = st.slider("標準差倍數", 1.0, 3.0, 2.0, step=0.1, key='bb_std')
+KBar_df['BB_MID']  = KBar_df['close'].rolling(window=bb_period).mean()
+KBar_df['BB_STD']  = KBar_df['close'].rolling(window=bb_period).std()
+KBar_df['BB_UP']   = KBar_df['BB_MID'] + bb_std * KBar_df['BB_STD']
+KBar_df['BB_DOWN'] = KBar_df['BB_MID'] - bb_std * KBar_df['BB_STD']
 fig_bb = make_subplots(specs=[[{"secondary_y": True}]])
 fig_bb.add_trace(go.Candlestick(x=KBar_df['time'], open=KBar_df['open'], high=KBar_df['high'],
-                                 low=KBar_df['low'], close=KBar_df['close'], name='K 線'), secondary_y=True)
-fig_bb.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['BB_UP'], name='上軌'), secondary_y=True)
-fig_bb.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['BB_MID'], name='中軌'), secondary_y=True)
-fig_bb.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['BB_DOWN'], name='下軌'), secondary_y=True)
+                                low=KBar_df['low'], close=KBar_df['close'], name='K 線'), secondary_y=True)
+fig_bb.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['BB_MID'], mode='lines', name='中軌'), secondary_y=True)
+fig_bb.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['BB_UP'], mode='lines', name='上軌'), secondary_y=True)
+fig_bb.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['BB_DOWN'], mode='lines', name='下軌'), secondary_y=True)
 fig_bb.add_trace(go.Bar(x=KBar_df['time'], y=KBar_df['volume'], name='成交量', marker=dict(color='lightgray')), secondary_y=False)
+fig_bb.update_layout(yaxis2_title="價格", yaxis_title="成交量")
 st.plotly_chart(fig_bb, use_container_width=True)
 
-# MACD 計算與圖形
-ema_fast = KBar_df['close'].ewm(span=12, adjust=False).mean()
-ema_slow = KBar_df['close'].ewm(span=26, adjust=False).mean()
-KBar_df['MACD'] = ema_fast - ema_slow
-KBar_df['MACD_SIGNAL'] = KBar_df['MACD'].ewm(span=9, adjust=False).mean()
-KBar_df['MACD_HIST'] = KBar_df['MACD'] - KBar_df['MACD_SIGNAL']
+# MACD
+st.subheader("異同移動平均線 (MACD)")
+fastp = st.slider("MACD 快線", 5, 30, 12, key='macd_fast')
+slowp = st.slider("MACD 慢線", 10, 60, 26, key='macd_slow')
+sigp  = st.slider("MACD 訊號線", 5, 20, 9, key='macd_sig')
+ema_fast = KBar_df['close'].ewm(span=fastp, adjust=False).mean()
+ema_slow = KBar_df['close'].ewm(span=slowp, adjust=False).mean()
+KBar_df['MACD']       = ema_fast - ema_slow
+KBar_df['MACD_SIGNAL'] = KBar_df['MACD'].ewm(span=sigp, adjust=False).mean()
+KBar_df['MACD_HIST']  = KBar_df['MACD'] - KBar_df['MACD_SIGNAL']
 fig_macd = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.05)
-fig_macd.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['MACD'], name='MACD'), row=1, col=1)
-fig_macd.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['MACD_SIGNAL'], name='Signal'), row=1, col=1)
-fig_macd.add_trace(go.Bar(x=KBar_df['time'], y=KBar_df['MACD_HIST'], name='Hist'), row=2, col=1)
+fig_macd.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['MACD'], mode='lines', name='MACD'), row=1, col=1)
+fig_macd.add_trace(go.Scatter(x=KBar_df['time'], y=KBar_df['MACD_SIGNAL'], mode='lines', name='Signal'), row=1, col=1)
+fig_macd.add_trace(go.Bar(x=KBar_df['time'], y=KBar_df['MACD_HIST'], name='Histogram', marker=dict(color='gray')), row=2, col=1)
+fig_macd.update_layout(yaxis_title="MACD", yaxis2_title="Histogram", xaxis_title="時間")
 st.plotly_chart(fig_macd, use_container_width=True)
-
-# 策略績效圖依然保留
-# 已內建於前一段修改中，無需重複
