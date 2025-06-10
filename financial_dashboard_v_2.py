@@ -61,16 +61,15 @@ end_date_str = file_parts[4]
 
 # 日期選擇
 st.subheader("選擇資料時間區間")
-# 從資料中擷取所有日期並轉為字串格式
-all_dates = df_original['time'].dt.strftime('%Y-%m-%d').dropna().unique().tolist()
-all_dates.sort()
 
-# 選擇起訖日期（用下拉選單）
-start_date_str = st.selectbox("選擇開始日期", all_dates, index=0)
-filtered_end_dates = [d for d in all_dates if d >= start_date_str]
-end_date_str = st.selectbox("選擇結束日期", filtered_end_dates, index=len(filtered_end_dates)-1)
+# 修正 time 欄位為 datetime 格式（防呆）
+df_original['time'] = pd.to_datetime(df_original['time'])
 
-# 轉回 datetime 格式
+min_date = df_original['time'].min().date()
+max_date = df_original['time'].max().date()
+
+start_date = st.date_input("選擇開始日期", value=min_date, min_value=min_date, max_value=max_date)
+end_date = st.date_input("選擇結束日期", value=max_date, min_value=start_date, max_value=max_date)
 start_date = datetime.datetime.strptime(start_date_str, '%Y-%m-%d')
 end_date = datetime.datetime.strptime(end_date_str, '%Y-%m-%d')
 
