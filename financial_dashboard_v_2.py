@@ -13,7 +13,7 @@ import streamlit.components.v1 as stc
 import datetime
 import matplotlib.pyplot as plt
 from order_streamlit import Record
-import indicator_forKBar_short  # 恢復依賴此模組
+import indicator_f_Lo2_short
 
 # 設定網頁標題
 html_temp = """
@@ -64,11 +64,9 @@ max_date = df_original['time'].max().date()
 start_date = st.date_input("開始日期", min_value=min_date, max_value=max_date, value=min_date)
 end_date = st.date_input("結束日期", min_value=start_date, max_value=max_date, value=max_date)
 
-# 轉為 datetime.datetime 格式
+# 轉為 datetime 以便篩選
 start_date = datetime.datetime.combine(start_date, datetime.time.min)
 end_date = datetime.datetime.combine(end_date, datetime.time.max)
-
-# 篩選資料區間
 df = df_original[(df_original['time'] >= start_date) & (df_original['time'] <= end_date)]
 
 # 轉成字典格式供技術分析模組使用
@@ -94,5 +92,5 @@ st.write(df.head())
 # 顯示圖表
 st.subheader("K 線圖與移動平均")
 fig, ax = plt.subplots(figsize=(12, 6))
-indicator_forKBar_short.CandlePlot(ax, KBar_dic)  # 使用外部模組畫圖
+indicator_f_Lo2_short.CandlePlot(ax, KBar_dic)  # 使用外部模組畫圖
 st.pyplot(fig)
